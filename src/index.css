@@ -8,3 +8,12 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ปรับแต่ง Leaflet Popup ให้เข้ากับ Dark Mode */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background-color: #020617 !important; /* slate-950 */
+  border: 1px solid #1e293b; /* slate-800 */
+}
+.leaflet-popup-close-button {
+  color: #94a3b8 !important; /* slate-400 */
+}
