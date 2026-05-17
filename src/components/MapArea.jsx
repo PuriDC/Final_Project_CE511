@@ -4,18 +4,38 @@ import MarkerClusterGroup from 'react-leaflet-cluster'; // 1. เพิ่ม Im
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderToString } from 'react-dom/server';
-import { Flame, ShieldAlert, Wind, Phone } from 'lucide-react';
+import { Flame, ShieldAlert, Wind, Phone, Navigation } from 'lucide-react';
 
-export default function MapArea({ hotspots, stations, showWind }) {
+export default function MapArea({ hotspots, stations, showWind, windData }) { // อย่าลืมเติมรับ props windData
   
-  // สร้าง Custom Icon สำหรับไฟป่า
-  const createFireIcon = () => {
+  // สร้าง Custom Icon สำหรับไฟป่า (พร้อมทิศทางลมหมุนตามจริง)
+  const createFireIcon = (severity) => {
+    // กำหนดสีของเปลวไฟตามความรุนแรง (h = แดง, n = ส้ม)
+    const fireColor = severity === 'high' ? 'text-red-500' : 'text-orange-400';
+    const bgColor = severity === 'high' ? 'bg-red-500/40' : 'bg-orange-500/40';
+    const borderColor = severity === 'high' ? 'border-red-500' : 'border-orange-500';
+    const shadowColor = severity === 'high' ? 'rgba(239,68,68,0.8)' : 'rgba(249,115,22,0.8)';
+
+    // ถ้าระบบอนุญาตให้แสดงทิศทางลม และมีข้อมูลลมจริง ให้สร้างลูกศรหมุนตามองศา
+    const windArrow = (showWind && windData) ? `
+      <div 
+        class="absolute -top-3 -right-3 bg-emerald-500 text-white rounded-full p-0.5 border border-slate-900 shadow-md"
+        style="transform: rotate(${windData.degrees}deg);"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+        </svg>
+      </div>
+    ` : '';
+
     const iconHTML = renderToString(
       <div className="relative flex justify-center items-center">
-        <div className="absolute -inset-2 bg-red-500/40 rounded-full animate-ping"></div>
-        <div className="bg-red-950 p-2 rounded-full border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.8)] relative z-10">
-          <Flame size={20} className="text-red-500" />
+        <div className={`absolute -inset-2 ${bgColor} rounded-full animate-ping`}></div>
+        <div className={`bg-slate-950 p-2 rounded-full border-2 ${borderColor} shadow-[0_0_15px_${shadowColor}] relative z-10`}>
+          <Flame size={20} className={fireColor} />
         </div>
+        {/* แทรกลูกศรทิศทางลม */}
+        <div dangerouslySetInnerHTML={{ __html: windArrow }}></div>
       </div>
     );
     return L.divIcon({ html: iconHTML, className: 'bg-transparent', iconSize: [40, 40], iconAnchor: [20, 20], popupAnchor: [0, -20] });
@@ -74,7 +94,7 @@ export default function MapArea({ hotspots, stations, showWind }) {
 
           {/* วาดจุดไฟป่า */}
           {hotspots.map((spot) => (
-            <Marker key={"hotspot-" + spot.id} position={[spot.lat, spot.lng]} icon={createFireIcon()}>
+            <Marker key={"hotspot-" + spot.id} position={[spot.lat, spot.lng]} icon={createFireIcon(spot.severity)}>
               <Popup className="custom-popup">
                 <div className="bg-slate-950 text-slate-200 p-1 rounded-md min-w-[200px]">
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
