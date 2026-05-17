@@ -99,7 +99,12 @@ Final_Project_CE511/
 ## 👥 Team
  
 This project was developed by students of **CE511** — Final Project.
- 
+1.Korawich Dangpongsri    1660900059
+2.Pijakkana Maneewattana  1660900133
+3.Kanyarat Tumhom         1660900158
+4.Suchanya Yothayan       1660903988
+5.Puripat Dachthungka     1660904549
+
 ---
  
 ## 📄 License
