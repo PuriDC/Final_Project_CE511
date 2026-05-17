@@ -18,27 +18,40 @@ export default function App() {
   const [realWind, setRealWind] = useState(null); 
   const [loading, setLoading] = useState(true);
 
-  const GNEWS_API_KEY = 'e31b66ff7d0a07a62593e590e7ca4fc2'; 
   const NASA_API_KEY = '3f93b24ca294fabf6027241024451ab9';
+  // ลบ GNEWS_API_KEY ออกไปแล้ว เพราะเราใช้ Google News RSS แบบฟรีแทนครับ
 
   useEffect(() => {
     const fetchRealTimeData = async () => {
       try {
-        // 1. ดึงข่าว GNews
-        if (GNEWS_API_KEY) {
-          const newsRes = await fetch(`https://gnews.io/api/v4/search?q=ไฟป่า+ประเทศไทย&lang=th&country=th&max=3&apikey=${GNEWS_API_KEY}`);
-          const newsJson = await newsRes.json();
-          if (newsJson.articles) {
-            setRealNews(newsJson.articles.map((article, index) => ({
+        // 1. ดึงข้อมูลข่าวสารจาก Google News (ฟรีและดึงได้ไม่อั้น!)
+        // ค้นหาข่าวคำว่า "ไฟป่า PM2.5 ประเทศไทย"
+        const rssQuery = encodeURIComponent('https://news.google.com/rss/search?q=ไฟป่า+PM2.5+ประเทศไทย&hl=th&gl=TH&ceid=TH:th');
+        const newsRes = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssQuery}`);
+        const newsJson = await newsRes.json();
+        
+        if (newsJson.status === 'ok' && newsJson.items) {
+          // ดึงมาแค่ 3 ข่าวล่าสุด
+          const formattedNews = newsJson.items.slice(0, 3).map((article, index) => {
+            // ลบโค้ด HTML ที่อาจติดมากับข้อความข่าว
+            const cleanSummary = article.description ? article.description.replace(/<[^>]+>/g, '') : 'คลิกเพื่ออ่านรายละเอียดข่าว...';
+            
+            // Google News มักจะใส่ชื่อสำนักข่าวไว้ท้ายชื่อเรื่อง เราสามารถตัดแยกออกมาได้
+            const titleParts = article.title.split(' - ');
+            const sourceName = titleParts.length > 1 ? titleParts.pop() : 'Google News';
+            const cleanTitle = titleParts.join(' - ');
+
+            return {
               id: index,
-              title: article.title,
-              source: article.source.name,
-              time: new Date(article.publishedAt).toLocaleDateString('th-TH'),
-              summary: article.description,
-              url: article.url,
-              isUrgent: index === 0
-            })));
-          }
+              title: cleanTitle,
+              source: sourceName,
+              time: new Date(article.pubDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }),
+              summary: cleanSummary.length > 120 ? cleanSummary.substring(0, 120) + '...' : cleanSummary,
+              url: article.link,
+              isUrgent: index === 0 // ให้ข่าวแรกสุดเป็นข่าวด่วนสีแดงเสมอ
+            };
+          });
+          setRealNews(formattedNews);
         } else {
           setRealNews(mockNews);
         }
