@@ -1,9 +1,5 @@
 export const hotspotsData = [
-  { id: 1, name: 'อุทยานแห่งชาติดอยสุเทพ-ปุย (เชียงใหม่)', lat: 18.8127, lng: 98.8915, severity: 'high', area: '15 ไร่', status: 'กำลังควบคุม' },
-  { id: 2, name: 'เขตรักษาพันธุ์สัตว์ป่าแม่ตื่น (ตาก)', lat: 16.2941, lng: 98.9056, severity: 'medium', area: '5 ไร่', status: 'เฝ้าระวัง' },
-  { id: 3, name: 'อุทยานแห่งชาติเอราวัณ (กาญจนบุรี)', lat: 14.3756, lng: 99.1444, severity: 'high', area: '22 ไร่', status: 'วิกฤต' },
-  { id: 4, name: 'ป่าสงวนแห่งชาติ (แม่ฮ่องสอน)', lat: 19.3023, lng: 97.9616, severity: 'high', area: '30 ไร่', status: 'กำลังควบคุม' },
-  { id: 5, name: 'เทือกเขาภูพาน (สกลนคร)', lat: 16.9850, lng: 104.0536, severity: 'low', area: '2 ไร่', status: 'ดับแล้ว/เฝ้าระวัง' },
+  
 ];
 
 export const stationsData = [

@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster'; // 1. เพิ่ม Import สำหรับจัดกลุ่มจุด
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderToString } from 'react-dom/server';
-import { Flame, ShieldAlert, Wind, Phone, Users } from 'lucide-react';
+import { Flame, ShieldAlert, Wind, Phone } from 'lucide-react';
 
-export default function MapArea({ hotspots, showWind }) {
+export default function MapArea({ hotspots, stations, showWind }) {
   
-  // 1. สร้าง Custom Icon สำหรับไฟป่าโดยใช้ Tailwind + Lucide
+  // สร้าง Custom Icon สำหรับไฟป่า
   const createFireIcon = () => {
     const iconHTML = renderToString(
       <div className="relative flex justify-center items-center">
@@ -20,60 +21,25 @@ export default function MapArea({ hotspots, showWind }) {
     return L.divIcon({ html: iconHTML, className: 'bg-transparent', iconSize: [40, 40], iconAnchor: [20, 20], popupAnchor: [0, -20] });
   };
 
-  // 2. สร้าง Custom Icon สำหรับหน่วยดับเพลิง
+  // 2. ปรับ Icon สถานีดับเพลิงให้ลอยๆ ไม่มีกรอบพื้นหลัง (ใช้เงาเรืองแสงแทน)
   const createStationIcon = () => {
     const iconHTML = renderToString(
-      <div className="bg-blue-950 p-2 rounded-xl border-2 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]">
-        <ShieldAlert size={18} className="text-blue-400" />
+      <div className="text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.9)] hover:text-blue-300 transition-colors">
+        <ShieldAlert size={26} strokeWidth={2.5} />
       </div>
     );
-    return L.divIcon({ html: iconHTML, className: 'bg-transparent', iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -20] });
+    return L.divIcon({ html: iconHTML, className: 'bg-transparent', iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -15] });
   };
 
-  const [allStations, setAllStations] = useState([]);
-
-  useEffect(() => {
-    fetch('/stations.json') 
-      .then((response) => response.json())
-      .then((data) => {
-        let uniqueStations = [];
-
-        if (data.records && Array.isArray(data.records)) {
-          // สร้างตัวจดจำว่าเคยดึงอำเภอไหนมาแล้วบ้าง
-          const seenDistricts = new Set();
-
-          data.records.forEach((record) => {
-            const amphoe = record[11];   // คอลัมน์ที่ 11 คือ อำเภอ
-            const province = record[12]; // คอลัมน์ที่ 12 คือ จังหวัด
-            const lat = parseFloat(record[5]);
-            const lng = parseFloat(record[6]);
-
-            // ข้ามถ้าพิกัดพัง หรือไม่มีชื่ออำเภอ
-            if (isNaN(lat) || isNaN(lng) || !amphoe || !province) return;
-
-            // สร้างกุญแจจำเพาะ เช่น "วังน้ำเย็น-สระแก้ว"
-            const districtKey = `${amphoe}-${province}`;
-
-            // ถ้ายังไม่เคยปักหมุดอำเภอนี้ ให้เพิ่มเข้าไป แล้วจดจำไว้
-            if (!seenDistricts.has(districtKey)) {
-              seenDistricts.add(districtKey); // จดลงสมุดว่าอำเภอนี้ปักแล้ว
-              
-              uniqueStations.push({
-                id: record[0], 
-                name: record[3] || 'หน่วยงานภาคสนาม', 
-                lat: lat, 
-                lng: lng, 
-                phone: '-',
-                locationName: `อ.${amphoe} จ.${province}` // เก็บชื่ออำเภอ/จังหวัดไว้แสดงผลด้วย
-              });
-            }
-          });
-        } 
-
-        setAllStations(uniqueStations);
-      })
-      .catch((error) => console.error("โหลดข้อมูลสถานีไม่สำเร็จ:", error));
-  }, []);
+  // 3. สร้าง Icon สำหรับตัวเลขเวลาจุดรวมตัวกัน (Cluster Icon) เข้ากับธีม Dark Mode
+  const createClusterCustomIcon = function (cluster) {
+    const count = cluster.getChildCount();
+    return L.divIcon({
+      html: `<div class="bg-blue-900/90 text-blue-200 w-10 h-10 flex items-center justify-center rounded-full border-2 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)] font-bold text-sm backdrop-blur-sm">${count}</div>`,
+      className: 'custom-marker-cluster',
+      iconSize: L.point(40, 40, true),
+    });
+  };
 
   const thailandCenter = [15.8700, 100.9925];
 
@@ -88,7 +54,7 @@ export default function MapArea({ hotspots, showWind }) {
           <span>จุดความร้อน (Hotspots)</span>
         </div>
         <div className="flex items-center gap-2.5 text-xs text-slate-300">
-          <div className="bg-blue-900/50 p-1 rounded-md border border-blue-500/50"><ShieldAlert size={14} className="text-blue-400"/></div>
+          <div className="drop-shadow-[0_0_5px_rgba(59,130,246,0.8)]"><ShieldAlert size={16} className="text-blue-400"/></div>
           <span>หน่วยดับไฟป่า</span>
         </div>
       </div>
@@ -99,12 +65,14 @@ export default function MapArea({ hotspots, showWind }) {
           zoom={6} 
           style={{ height: '100%', width: '100%', zIndex: 0 }}
           scrollWheelZoom={true}
+          maxZoom={18}
         >
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             attribution='&copy; OSM contributors'
           />
 
+          {/* วาดจุดไฟป่า */}
           {hotspots.map((spot) => (
             <Marker key={"hotspot-" + spot.id} position={[spot.lat, spot.lng]} icon={createFireIcon()}>
               <Popup className="custom-popup">
@@ -121,25 +89,29 @@ export default function MapArea({ hotspots, showWind }) {
             </Marker>
           ))}
 
-          {allStations.map((station) => (
-            <Marker key={"station-" + station.id} position={[station.lat, station.lng]} icon={createStationIcon()}>
-              <Popup className="custom-popup">
-                <div className="bg-slate-950 text-slate-200 p-1 rounded-md min-w-[200px]">
-                  <p className="font-bold text-white text-sm m-0 mb-2 border-b border-slate-800 pb-2">{station.name}</p>
-
-                    {/* เพิ่มบรรทัดนี้เพื่อโชว์ชื่ออำเภอ/จังหวัด */}
-                  <p className="text-xs text-slate-400 m-0 mb-2">📍 {station.locationName}</p>
-
-                  <a href={`tel:${station.phone}`} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-2 py-1.5 rounded-md text-xs font-semibold no-underline hover:bg-blue-500 transition-colors mt-2">
-                    <Phone size={12} /> {station.phone}
-                  </a>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+          {/* 4. ใช้ MarkerClusterGroup คลุมสถานีดับเพลิง เพื่อให้มันกรุ๊ปกันตอนซูมออก */}
+          <MarkerClusterGroup 
+            chunkedLoading
+            iconCreateFunction={createClusterCustomIcon}
+            maxClusterRadius={50} // ปรับรัศมีวงกลมการดูดจุดรวมกัน (ยิ่งมากยิ่งรวมกันเยอะ)
+          >
+            {stations.map((station) => (
+              <Marker key={"station-" + station.id} position={[station.lat, station.lng]} icon={createStationIcon()}>
+                <Popup className="custom-popup">
+                  <div className="bg-slate-950 text-slate-200 p-1 rounded-md min-w-[200px]">
+                    <p className="font-bold text-white text-sm m-0 mb-1 border-b border-slate-800 pb-2">{station.name}</p>
+                    <p className="text-xs text-slate-400 m-0 mb-2">📍 {station.locationName}</p>
+                    <a href={`tel:${station.phone}`} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-2 py-1.5 rounded-md text-xs font-semibold no-underline hover:bg-blue-500 transition-colors mt-2">
+                      <Phone size={12} /> {station.phone}
+                    </a>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MarkerClusterGroup>
+          
         </MapContainer>
       </div>
-
     </div>
   );
 }
