@@ -4,7 +4,7 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import MapArea from './components/MapArea';
 import NewsSection from './components/NewsSection';
-// ลบ windCondition ออกจาก mockData ได้เลยเพราะเราจะใช้ของจริง
+import Pm25Ranking from './components/Pm25Ranking'; // 1. เพิ่ม Import Component ฝุ่น
 import { hotspotsData as mockHotspots, newsData as mockNews } from './data/mockData'; 
 
 export default function App() {
@@ -13,42 +13,33 @@ export default function App() {
   const [realHotspots, setRealHotspots] = useState([]);
   const [realNews, setRealNews] = useState([]);
   const [realStations, setRealStations] = useState([]);
-  
-  // เพิ่ม State สำหรับเก็บข้อมูลลมจริง
   const [realWind, setRealWind] = useState(null); 
+  const [realPm25, setRealPm25] = useState([]); // 2. เพิ่ม State สำหรับเก็บข้อมูล PM 2.5
+  
   const [loading, setLoading] = useState(true);
 
   const NASA_API_KEY = '3f93b24ca294fabf6027241024451ab9';
-  // ลบ GNEWS_API_KEY ออกไปแล้ว เพราะเราใช้ Google News RSS แบบฟรีแทนครับ
 
   useEffect(() => {
     const fetchRealTimeData = async () => {
       try {
-        // 1. ดึงข้อมูลข่าวสารจาก Google News (ฟรีและดึงได้ไม่อั้น!)
-        // ค้นหาข่าวคำว่า "ไฟป่า PM2.5 ประเทศไทย"
+        // 1. ดึงข่าว GNews (Google News RSS)
         const rssQuery = encodeURIComponent('https://news.google.com/rss/search?q=ไฟป่า+PM2.5+ประเทศไทย&hl=th&gl=TH&ceid=TH:th');
         const newsRes = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssQuery}`);
         const newsJson = await newsRes.json();
-        
         if (newsJson.status === 'ok' && newsJson.items) {
-          // ดึงมาแค่ 3 ข่าวล่าสุด
           const formattedNews = newsJson.items.slice(0, 3).map((article, index) => {
-            // ลบโค้ด HTML ที่อาจติดมากับข้อความข่าว
             const cleanSummary = article.description ? article.description.replace(/<[^>]+>/g, '') : 'คลิกเพื่ออ่านรายละเอียดข่าว...';
-            
-            // Google News มักจะใส่ชื่อสำนักข่าวไว้ท้ายชื่อเรื่อง เราสามารถตัดแยกออกมาได้
             const titleParts = article.title.split(' - ');
             const sourceName = titleParts.length > 1 ? titleParts.pop() : 'Google News';
-            const cleanTitle = titleParts.join(' - ');
-
             return {
               id: index,
-              title: cleanTitle,
+              title: titleParts.join(' - '),
               source: sourceName,
               time: new Date(article.pubDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }),
               summary: cleanSummary.length > 120 ? cleanSummary.substring(0, 120) + '...' : cleanSummary,
               url: article.link,
-              isUrgent: index === 0 // ให้ข่าวแรกสุดเป็นข่าวด่วนสีแดงเสมอ
+              isUrgent: index === 0 
             };
           });
           setRealNews(formattedNews);
@@ -56,7 +47,7 @@ export default function App() {
           setRealNews(mockNews);
         }
 
-        // 2. ดึงดาวเทียม NASA (กรองเฉพาะจุดไฟป่ามั่นใจสูง/ปานกลาง)
+        // 2. ดึงดาวเทียม NASA
         if (NASA_API_KEY) {
           const nasaUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_API_KEY}/VIIRS_SNPP_NRT/97,5,106,21/1`;
           Papa.parse(nasaUrl, {
@@ -70,18 +61,14 @@ export default function App() {
                 .map((item, index) => ({
                   id: index,
                   name: `จุดความร้อนดาวเทียม (ละติจูด ${parseFloat(item.latitude).toFixed(2)})`,
-                  lat: parseFloat(item.latitude),
-                  lng: parseFloat(item.longitude),
+                  lat: parseFloat(item.latitude), lng: parseFloat(item.longitude),
                   severity: item.confidence === 'h' ? 'high' : 'medium',
-                  area: 'ประเมินจากดาวเทียม',
-                  status: 'ตรวจพบไฟป่า (Real-time)'
+                  area: 'ประเมินจากดาวเทียม', status: 'ตรวจพบไฟป่า (Real-time)'
                 }));
               setRealHotspots(formattedHotspots);
             }
           });
-        } else {
-          setRealHotspots(mockHotspots);
-        }
+        } else { setRealHotspots(mockHotspots); }
 
         // 3. ดึงสถานี JSON
         const stationRes = await fetch('/stations.json');
@@ -92,15 +79,13 @@ export default function App() {
           stationData.records.forEach((record) => {
             const amphoe = record[11];   
             const province = record[12]; 
-            const lat = parseFloat(record[5]);
-            const lng = parseFloat(record[6]);
+            const lat = parseFloat(record[5]); const lng = parseFloat(record[6]);
             if (isNaN(lat) || isNaN(lng) || !amphoe || !province) return;
             const districtKey = `${amphoe}-${province}`;
             if (!seenDistricts.has(districtKey)) {
               seenDistricts.add(districtKey);
               uniqueStations.push({
-                id: record[0], 
-                name: record[3] || 'หน่วยงานภาคสนาม', 
+                id: record[0], name: record[3] || 'หน่วยงานภาคสนาม', 
                 lat: lat, lng: lng, phone: '-', locationName: `อ.${amphoe} จ.${province}`
               });
             }
@@ -108,24 +93,55 @@ export default function App() {
         }
         setRealStations(uniqueStations);
 
-        // 💨 4. ดึงข้อมูลลมแบบ Real-Time จาก Open-Meteo API (พิกัดกลางประเทศไทย)
+        // 4. ดึงข้อมูลลมแบบ Real-Time
         const windRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=15.87&longitude=100.99&current=wind_speed_10m,wind_direction_10m');
         const windData = await windRes.json();
-        
         if (windData && windData.current) {
-          const speed = Math.round(windData.current.wind_speed_10m); // ความเร็วลม (กม./ชม.)
-          const degrees = windData.current.wind_direction_10m; // องศาทิศทางลม (0-360)
-          
-          // คำนวณองศาให้ออกมาเป็นชื่อทิศทาง
+          const speed = Math.round(windData.current.wind_speed_10m);
+          const degrees = windData.current.wind_direction_10m;
           const compassSector = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW", "N"];
-          const compassText = compassSector[(degrees / 22.5).toFixed(0)];
-          
           setRealWind({
-            speed: speed,
-            degrees: degrees, // ส่งองศาไปหมุนลูกศรบนแผนที่
-            compass: compassText,
+            speed: speed, degrees: degrees, compass: compassSector[(degrees / 22.5).toFixed(0)],
             description: `ความเร็วลม ${speed} กม./ชม.`
           });
+        }
+
+        // 🌫️ 5. ดึงข้อมูล PM 2.5 แบบ Real-Time (พิกัดจังหวัดหลักๆ ที่เสี่ยงไฟป่า)
+        const checkProvinces = [
+          { name: 'เชียงใหม่', lat: 18.7883, lng: 98.9853 },
+          { name: 'เชียงราย', lat: 19.9105, lng: 99.8406 },
+          { name: 'แม่ฮ่องสอน', lat: 19.3000, lng: 97.9667 },
+          { name: 'น่าน', lat: 18.7756, lng: 100.7730 },
+          { name: 'พะเยา', lat: 19.1667, lng: 99.9000 },
+          { name: 'ลำปาง', lat: 18.1565, lng: 99.6421 },
+          { name: 'ตาก', lat: 16.8833, lng: 99.1167 },
+          { name: 'พิษณุโลก', lat: 16.8170, lng: 100.2586 },
+          { name: 'ขอนแก่น', lat: 16.4322, lng: 102.8236 },
+          { name: 'อุดรธานี', lat: 17.4138, lng: 102.7872 },
+          { name: 'นครราชสีมา', lat: 14.9799, lng: 102.0978 },
+          { name: 'อุบลราชธานี', lat: 15.2384, lng: 104.8487 },
+          { name: 'กรุงเทพมหานคร', lat: 13.7563, lng: 100.5018 },
+          { name: 'ชลบุรี', lat: 13.3611, lng: 100.9850 },
+          { name: 'ภูเก็ต', lat: 7.8804, lng: 98.3922 }
+        ];
+
+        const lats = checkProvinces.map(p => p.lat).join(',');
+        const lngs = checkProvinces.map(p => p.lng).join(',');
+        const pmUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lats}&longitude=${lngs}&current=pm2_5`;
+        
+        const pmRes = await fetch(pmUrl);
+        const pmJson = await pmRes.json();
+        
+        if (Array.isArray(pmJson)) {
+          // นำข้อมูลที่ได้มาจับคู่ชื่อจังหวัด เรียงจากมากไปน้อย แล้วตัดมาแค่ 10 อันดับแรก
+          const ranking = pmJson.map((data, idx) => ({
+            name: checkProvinces[idx].name,
+            pm25: data.current.pm2_5 || 0
+          }))
+          .sort((a, b) => b.pm25 - a.pm25)
+          .slice(0, 10);
+          
+          setRealPm25(ranking);
         }
 
       } catch (error) {
@@ -153,25 +169,21 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-1">
             <Sidebar 
-              hotspots={realHotspots}
-              stations={realStations}
-              wind={realWind || { speed: 0, compass: 'N', degrees: 0, description: 'กำลังโหลดข้อมูลลม...' }} // ส่งลมจริงไป
-              showWind={showWind}
-              setShowWind={setShowWind}
+              hotspots={realHotspots} stations={realStations}
+              wind={realWind || { speed: 0, compass: 'N', degrees: 0, description: 'กำลังโหลดข้อมูลลม...' }} 
+              showWind={showWind} setShowWind={setShowWind}
             />
           </div>
           <div className="lg:col-span-3">
-            {/* ส่ง windData จริงๆ ไปให้แผนที่วาดทิศทางลม */}
-            <MapArea 
-              hotspots={realHotspots}
-              stations={realStations} 
-              showWind={showWind}
-              windData={realWind} 
-            />
+            <MapArea hotspots={realHotspots} stations={realStations} showWind={showWind} windData={realWind} />
           </div>
         </div>
 
         <NewsSection news={realNews} />
+        
+        {/* แสดงส่วนจัดอันดับฝุ่น PM 2.5 ต่อจากข่าว */}
+        <Pm25Ranking pmData={realPm25} />
+
       </main>
     </div>
   );

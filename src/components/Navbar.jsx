@@ -10,7 +10,7 @@ export default function Navbar() {
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-white tracking-wide">ThaiFire<span className="text-red-500">Alert</span></h1>
+            <h1 className="text-xl font-bold text-white tracking-wide">Blaze Protection<span className="text-red-500">Alert</span></h1>
             <span className="bg-red-500/10 text-red-400 text-[10px] px-2 py-0.5 rounded-full border border-red-500/30 font-medium uppercase tracking-wider animate-pulse">Live</span>
           </div>
           <p className="text-xs text-slate-400">ระบบติดตามสถานการณ์และคาดการณ์ทิศทางไฟป่า</p>
