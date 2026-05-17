@@ -7,7 +7,7 @@ export default function NewsSection({ news }) {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
           <Newspaper size={22} className="text-red-400" />
-          อัปเดตข่าวสารและสถานการณ์ล่าสุด
+          อัปเดตข่าวสารจากสำนักข่าว
         </h2>
         <button className="text-sm text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
           ดูข่าวทั้งหมด <ArrowRight size={14} />
@@ -16,11 +16,13 @@ export default function NewsSection({ news }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {news.map((item) => (
-          <div 
+          <a 
+            href={item.url || '#'} 
+            target="_blank" 
+            rel="noreferrer"
             key={item.id} 
-            className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 hover:bg-slate-800/60 transition-all cursor-pointer group hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden backdrop-blur-sm"
+            className="block bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 hover:bg-slate-800/60 transition-all cursor-pointer group hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden backdrop-blur-sm"
           >
-            {/* แถบสีด้านบนการ์ดข่าว (สีแดงถ้าเป็นข่าวด่วน สีเทาถ้าข่าวปกติ) */}
             <div className={`absolute top-0 left-0 w-full h-1 ${item.isUrgent ? 'bg-red-500' : 'bg-slate-700'}`}></div>
             
             <div className="flex items-center justify-between mb-3 mt-1">
@@ -43,7 +45,7 @@ export default function NewsSection({ news }) {
             <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">
               {item.summary}
             </p>
-          </div>
+          </a>
         ))}
       </div>
     </div>

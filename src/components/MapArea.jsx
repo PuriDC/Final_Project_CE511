@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderToString } from 'react-dom/server';
 import { Flame, ShieldAlert, Wind, Phone, Users } from 'lucide-react';
 
-export default function MapArea({ hotspots, stations, showWind }) {
+export default function MapArea({ hotspots, showWind }) {
   
   // 1. สร้าง Custom Icon สำหรับไฟป่าโดยใช้ Tailwind + Lucide
   const createFireIcon = () => {
@@ -30,7 +30,51 @@ export default function MapArea({ hotspots, stations, showWind }) {
     return L.divIcon({ html: iconHTML, className: 'bg-transparent', iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -20] });
   };
 
-  // พิกัดกึ่งกลางประเทศไทย (จุดเริ่มต้นเมื่อโหลดแผนที่)
+  const [allStations, setAllStations] = useState([]);
+
+  useEffect(() => {
+    fetch('/stations.json') 
+      .then((response) => response.json())
+      .then((data) => {
+        let uniqueStations = [];
+
+        if (data.records && Array.isArray(data.records)) {
+          // สร้างตัวจดจำว่าเคยดึงอำเภอไหนมาแล้วบ้าง
+          const seenDistricts = new Set();
+
+          data.records.forEach((record) => {
+            const amphoe = record[11];   // คอลัมน์ที่ 11 คือ อำเภอ
+            const province = record[12]; // คอลัมน์ที่ 12 คือ จังหวัด
+            const lat = parseFloat(record[5]);
+            const lng = parseFloat(record[6]);
+
+            // ข้ามถ้าพิกัดพัง หรือไม่มีชื่ออำเภอ
+            if (isNaN(lat) || isNaN(lng) || !amphoe || !province) return;
+
+            // สร้างกุญแจจำเพาะ เช่น "วังน้ำเย็น-สระแก้ว"
+            const districtKey = `${amphoe}-${province}`;
+
+            // ถ้ายังไม่เคยปักหมุดอำเภอนี้ ให้เพิ่มเข้าไป แล้วจดจำไว้
+            if (!seenDistricts.has(districtKey)) {
+              seenDistricts.add(districtKey); // จดลงสมุดว่าอำเภอนี้ปักแล้ว
+              
+              uniqueStations.push({
+                id: record[0], 
+                name: record[3] || 'หน่วยงานภาคสนาม', 
+                lat: lat, 
+                lng: lng, 
+                phone: '-',
+                locationName: `อ.${amphoe} จ.${province}` // เก็บชื่ออำเภอ/จังหวัดไว้แสดงผลด้วย
+              });
+            }
+          });
+        } 
+
+        setAllStations(uniqueStations);
+      })
+      .catch((error) => console.error("โหลดข้อมูลสถานีไม่สำเร็จ:", error));
+  }, []);
+
   const thailandCenter = [15.8700, 100.9925];
 
   return (
@@ -49,7 +93,6 @@ export default function MapArea({ hotspots, stations, showWind }) {
         </div>
       </div>
 
-      {/* แผนที่จริงจาก Leaflet */}
       <div className="flex-1 rounded-xl overflow-hidden border border-slate-700/50 relative z-0">
         <MapContainer 
           center={thailandCenter} 
@@ -57,15 +100,13 @@ export default function MapArea({ hotspots, stations, showWind }) {
           style={{ height: '100%', width: '100%', zIndex: 0 }}
           scrollWheelZoom={true}
         >
-          {/* Base Map โทนสีมืด (Dark Mode) */}
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            attribution='&copy; OSM contributors'
           />
 
-          {/* ปักหมุดไฟป่า */}
           {hotspots.map((spot) => (
-            <Marker key={`hotspot-${spot.id}`} position={[spot.lat, spot.lng]} icon={createFireIcon()}>
+            <Marker key={"hotspot-" + spot.id} position={[spot.lat, spot.lng]} icon={createFireIcon()}>
               <Popup className="custom-popup">
                 <div className="bg-slate-950 text-slate-200 p-1 rounded-md min-w-[200px]">
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
@@ -74,28 +115,22 @@ export default function MapArea({ hotspots, stations, showWind }) {
                   </div>
                   <p className="text-xs text-slate-400 m-0 mb-1">สถานะ: <span className="text-red-400">{spot.status}</span></p>
                   <p className="text-xs text-slate-400 m-0 mb-1">พื้นที่: <span className="text-white">{spot.area}</span></p>
-                  <p className="text-xs text-slate-400 m-0">ความรุนแรง: <span className="text-red-500 font-bold">{spot.severity.toUpperCase()}</span></p>
-                  
-                  {showWind && (
-                    <div className="mt-2 pt-2 border-t border-slate-800 flex items-center gap-1 text-xs text-emerald-400">
-                      <Wind size={12} /> ทิศทางลมพัดไปตะวันออกเฉียงเหนือ
-                    </div>
-                  )}
+                  <p className="text-xs text-slate-400 m-0">ความรุนแรง: <span className="text-red-500 font-bold">{spot.severity ? spot.severity.toUpperCase() : 'ไม่ระบุ'}</span></p>
                 </div>
               </Popup>
             </Marker>
           ))}
 
-          {/* ปักหมุดหน่วยงาน */}
-          {stations.map((station) => (
-            <Marker key={`station-${station.id}`} position={[station.lat, station.lng]} icon={createStationIcon()}>
+          {allStations.map((station) => (
+            <Marker key={"station-" + station.id} position={[station.lat, station.lng]} icon={createStationIcon()}>
               <Popup className="custom-popup">
                 <div className="bg-slate-950 text-slate-200 p-1 rounded-md min-w-[200px]">
                   <p className="font-bold text-white text-sm m-0 mb-2 border-b border-slate-800 pb-2">{station.name}</p>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-3">
-                    <Users size={12} /> กำลังพลพร้อมรบ: {station.personnel} นาย
-                  </div>
-                  <a href={`tel:${station.phone}`} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-2 py-1.5 rounded-md text-xs font-semibold no-underline hover:bg-blue-500 transition-colors">
+
+                    {/* เพิ่มบรรทัดนี้เพื่อโชว์ชื่ออำเภอ/จังหวัด */}
+                  <p className="text-xs text-slate-400 m-0 mb-2">📍 {station.locationName}</p>
+
+                  <a href={`tel:${station.phone}`} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-2 py-1.5 rounded-md text-xs font-semibold no-underline hover:bg-blue-500 transition-colors mt-2">
                     <Phone size={12} /> {station.phone}
                   </a>
                 </div>
