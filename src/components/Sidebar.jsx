@@ -66,7 +66,7 @@ export default function Sidebar({ hotspots, stations, wind, showWind, setShowWin
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2 text-slate-400">
             <Wind size={18} className="text-emerald-400" />
-            <span className="text-sm font-medium">ทิศทางและสภาพลม</span>
+            <span className="text-sm font-medium">ทิศทางและความเร็วลม</span>
           </div>
           
           <button 

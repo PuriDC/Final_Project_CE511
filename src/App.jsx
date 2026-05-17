@@ -47,7 +47,7 @@ export default function App() {
           setRealNews(mockNews);
         }
 
-        // 2. ดึงดาวเทียม NASA
+        // 2. ดึงดาวเทียม NASA (ฉบับอัปเกรดความแม่นยำ)
         if (NASA_API_KEY) {
           const nasaUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${NASA_API_KEY}/VIIRS_SNPP_NRT/97,5,106,21/1`;
           Papa.parse(nasaUrl, {
@@ -56,19 +56,24 @@ export default function App() {
             complete: (results) => {
               const formattedHotspots = results.data
                 .filter(item => item.latitude && item.longitude)
-                .filter(item => item.confidence === 'h' || item.confidence === 'n')
-                .slice(0, 100)
+                // 🔥 1. กรองเฉพาะระดับ 'h' (High Confidence) เพื่อตัดจุดที่อาจไม่ใช่ไฟป่าจริงๆ ทิ้ง
+                .filter(item => item.confidence === 'h') 
+                // ✂️ 2. ลบ .slice(0, 100) ออก เพื่อให้จุดกระจายทั่วประเทศตามจริง ไม่กระจุกตัว
                 .map((item, index) => ({
                   id: index,
-                  name: `จุดความร้อนดาวเทียม (ละติจูด ${parseFloat(item.latitude).toFixed(2)})`,
-                  lat: parseFloat(item.latitude), lng: parseFloat(item.longitude),
-                  severity: item.confidence === 'h' ? 'high' : 'medium',
-                  area: 'ประเมินจากดาวเทียม', status: 'ตรวจพบไฟป่า (Real-time)'
+                  name: `จุดความร้อน (ละติจูด ${parseFloat(item.latitude).toFixed(2)})`,
+                  lat: parseFloat(item.latitude),
+                  lng: parseFloat(item.longitude),
+                  severity: 'high',
+                  area: 'ประเมินจากดาวเทียม',
+                  status: 'ตรวจพบไฟป่า (Real-time)'
                 }));
               setRealHotspots(formattedHotspots);
             }
           });
-        } else { setRealHotspots(mockHotspots); }
+        } else {
+          setRealHotspots(mockHotspots);
+        }
 
         // 3. ดึงสถานี JSON
         const stationRes = await fetch('/stations.json');

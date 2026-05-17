@@ -60,6 +60,15 @@ export default function MapArea({ hotspots, stations, showWind, windData }) { //
       iconSize: L.point(40, 40, true),
     });
   };
+  // สร้าง Icon สำหรับตัวเลขจุดรวมไฟป่า (Fire Cluster) โทนสีแดง
+  const createFireClusterIcon = function (cluster) {
+    const count = cluster.getChildCount();
+    return L.divIcon({
+      html: `<div class="bg-red-950/90 text-red-200 w-10 h-10 flex items-center justify-center rounded-full border-2 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.8)] font-bold text-sm backdrop-blur-sm">${count}</div>`,
+      className: 'custom-marker-cluster',
+      iconSize: L.point(40, 40, true),
+    });
+  };
 
   const thailandCenter = [15.8700, 100.9925];
 
@@ -92,22 +101,28 @@ export default function MapArea({ hotspots, stations, showWind, windData }) { //
             attribution='&copy; OSM contributors'
           />
 
-          {/* วาดจุดไฟป่า */}
-          {hotspots.map((spot) => (
-            <Marker key={"hotspot-" + spot.id} position={[spot.lat, spot.lng]} icon={createFireIcon(spot.severity)}>
-              <Popup className="custom-popup">
-                <div className="bg-slate-950 text-slate-200 p-1 rounded-md min-w-[200px]">
-                  <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                    <p className="font-bold text-white text-sm m-0">{spot.name}</p>
+          {/* จัดกลุ่มหมุดไฟป่า (Fire Cluster) เพื่อความแม่นยำและสบายตา */}
+          <MarkerClusterGroup 
+            chunkedLoading
+            iconCreateFunction={createFireClusterIcon}
+            maxClusterRadius={20} // ปรับรัศมีการดูดจุดไฟป่าเข้าด้วยกัน
+          >
+            {hotspots.map((spot) => (
+              <Marker key={"hotspot-" + spot.id} position={[spot.lat, spot.lng]} icon={createFireIcon(spot.severity)}>
+                <Popup className="custom-popup">
+                  <div className="bg-slate-950 text-slate-200 p-1 rounded-md min-w-[200px]">
+                    <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                      <p className="font-bold text-white text-sm m-0">{spot.name}</p>
+                    </div>
+                    <p className="text-xs text-slate-400 m-0 mb-1">สถานะ: <span className="text-red-400">{spot.status}</span></p>
+                    <p className="text-xs text-slate-400 m-0 mb-1">พื้นที่: <span className="text-white">{spot.area}</span></p>
+                    <p className="text-xs text-slate-400 m-0">ความรุนแรง: <span className="text-red-500 font-bold">{spot.severity ? spot.severity.toUpperCase() : 'ไม่ระบุ'}</span></p>
                   </div>
-                  <p className="text-xs text-slate-400 m-0 mb-1">สถานะ: <span className="text-red-400">{spot.status}</span></p>
-                  <p className="text-xs text-slate-400 m-0 mb-1">พื้นที่: <span className="text-white">{spot.area}</span></p>
-                  <p className="text-xs text-slate-400 m-0">ความรุนแรง: <span className="text-red-500 font-bold">{spot.severity ? spot.severity.toUpperCase() : 'ไม่ระบุ'}</span></p>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+                </Popup>
+              </Marker>
+            ))}
+          </MarkerClusterGroup>
 
           {/* 4. ใช้ MarkerClusterGroup คลุมสถานีดับเพลิง เพื่อให้มันกรุ๊ปกันตอนซูมออก */}
           <MarkerClusterGroup 
